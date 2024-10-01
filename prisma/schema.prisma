@@ -1,0 +1,81 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+model Account {
+  id                Int     @id @default(autoincrement())
+  userId            Int     @map("user_id")
+  type              String
+  provider          String
+  providerAccountId String  @map("provider_account_id")
+  refresh_token     String? @db.Text
+  access_token      String? @db.Text
+  expires_at        Int?    @map("expires_at")
+  token_type        String? @map("token_type")
+  scope             String?
+  id_token          String? @map("id_token") @db.Text
+  session_state     String? @map("session_state")
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@unique([provider, providerAccountId])
+  @@map("accounts")
+}
+
+model User {
+  id                    Int                    @id @default(autoincrement())
+  name                  String?
+  email                 String?                @unique @map("email")
+  emailVerified         DateTime?              @map("email_verified")
+  image                 String?                @map("image")
+  createdAt             DateTime               @default(now()) @map("created_at")
+  updatedAt             DateTime               @updatedAt @map("updated_at")
+  password              String?                @map("password")
+  isTwoFactorEnabled    Boolean                @default(false) @map("is_two_factor_enabled")
+  accounts              Account[]
+  twoFactorConfirmation TwoFactorConfirmation?
+  verificationTokens    VerificationToken[]
+  twoFactorTokens       TwoFactorToken[]
+
+  @@map("users")
+}
+
+model VerificationToken {
+  id      Int      @id @default(autoincrement())
+  email   String   @map("email")
+  token   String   @unique @map("token")
+  expires DateTime @map("expires")
+
+  userId Int?  @map("user_id")
+  user   User? @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@unique([email, token])
+  @@map("verification_tokens")
+}
+
+model TwoFactorToken {
+  id      Int      @id @default(autoincrement())
+  email   String   @map("email")
+  token   String   @unique @map("token")
+  expires DateTime @map("expires")
+
+  userId Int?  @map("user_id")
+  user   User? @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@unique([email, token])
+  @@map("two_factor_tokens")
+}
+
+model TwoFactorConfirmation {
+  id     Int  @id @default(autoincrement())
+  userId Int  @map("user_id")
+  user   User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@unique([userId])
+  @@map("two_factor_confirmations")
+}
