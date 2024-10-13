@@ -51,7 +51,8 @@ export class AuthService {
 
 		if (!result) throw new UnauthorizedException('Invalid refresh token');
 
-		const user = await this.userService.getById(result.id);
+		// eslint-disable-next-line @typescript-eslint/no-unused-vars
+		const { password, ...user } = await this.userService.getById(result.id);
 
 		console.log('User data:', user);
 
