@@ -4,6 +4,8 @@ import * as dotenv from 'dotenv';
 import { AppModule } from './app.module';
 
 dotenv.config();
+console.log('Front URL:', process.env.FRONT_URL);
+console.log('Front Port:', process.env.PORT);
 
 async function bootstrap() {
 	const app = await NestFactory.create(AppModule);
@@ -17,6 +19,6 @@ async function bootstrap() {
 		methods: ['GET', 'POST', 'PUT', 'DELETE', 'OPTIONS'],
 		allowedHeaders: ['Content-Type', 'Authorization', 'Origin', 'Accept'],
 	});
-	await app.listen(4200);
+	await app.listen(process.env.PORT);
 }
 bootstrap();

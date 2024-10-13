@@ -99,7 +99,7 @@ export class AuthService {
 			httpOnly: true,
 			domain: process.env.DOMAIN,
 			expires: expiresIn,
-			secure: true,
+			secure: false,
 			sameSite: 'lax',
 		});
 	}
@@ -109,7 +109,7 @@ export class AuthService {
 			httpOnly: true,
 			domain: process.env.DOMAIN,
 			expires: new Date(0),
-			secure: true,
+			secure: false,
 			sameSite: 'lax',
 		});
 	}
