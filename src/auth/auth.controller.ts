@@ -1,8 +1,10 @@
 import {
 	Body,
 	Controller,
+	Get,
 	HttpCode,
 	Post,
+	Query,
 	Req,
 	Res,
 	UnauthorizedException,
@@ -66,5 +68,19 @@ export class AuthController {
 	async logout(@Res({ passthrough: true }) res: Response) {
 		this.authService.removeRefreshTokenToResponse(res);
 		return true;
+	}
+
+	@HttpCode(200)
+	@Get('callback/github')
+	async githubOauth(
+		@Query() queryData: { code: string },
+		@Res({ passthrough: true }) res: Response,
+	) {
+		const { refreshToken } = await this.authService.handleGitHubLogin(
+			queryData.code,
+		);
+		this.authService.addRefreshTokenToResponse(res, refreshToken);
+		const redirectUrl = `${process.env.FRONT_URL}/login?auth=true`;
+		return res.redirect(redirectUrl);
 	}
 }

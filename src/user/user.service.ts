@@ -2,6 +2,7 @@ import { BadRequestException, Injectable } from '@nestjs/common';
 import { hash } from 'argon2';
 import { AuthDto } from '../auth/dto/auth.dto';
 import { PrismaService } from '../prisma.service';
+import { CreateFromServiceDto } from './dto/createFromService.dto';
 
 @Injectable()
 export class UserService {
@@ -50,6 +51,14 @@ export class UserService {
 		};
 		return this.prisma.user.create({
 			data: user,
+		});
+	}
+	async createFromService(dto: CreateFromServiceDto) {
+		return this.prisma.user.create({
+			data: {
+				email: dto.email,
+				name: dto.name,
+			},
 		});
 	}
 }
