@@ -6,4 +6,7 @@ export class CreateFromServiceDto {
 
 	@IsString()
 	name: string;
+
+	@IsString()
+	image: string;
 }

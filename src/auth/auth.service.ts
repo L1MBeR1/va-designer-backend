@@ -6,7 +6,7 @@ import {
 } from '@nestjs/common';
 import { JwtService } from '@nestjs/jwt';
 import { Provider } from '@prisma/client';
-import { verify } from 'argon2';
+import { hash, verify } from 'argon2';
 import axios from 'axios';
 import { Response } from 'express';
 import { AccountService } from 'src/account/account.service';
@@ -134,22 +134,26 @@ export class AuthService {
 				},
 			},
 		);
-
-		const accessToken = tokenResponse.data.access_token;
-		if (!accessToken) {
+		console.log('Первый запрос');
+		console.log(tokenResponse.data);
+		if (!tokenResponse.data) {
 			throw new BadRequestException(
 				'Failed to obtain access token from GitHub',
 			);
 		}
+		const accessToken = tokenResponse.data.access_token;
 
 		const userResponse = await axios.get('https://api.github.com/user', {
 			headers: {
 				Authorization: `Bearer ${accessToken}`,
 			},
 		});
-
+		console.log('Второй запрос');
+		console.log(userResponse.data);
+		if (!userResponse.data) {
+			throw new BadRequestException('Failed to get user data from GitHub');
+		}
 		const userData = userResponse.data;
-
 		const emailResponse = await axios.get(
 			'https://api.github.com/user/emails',
 			{
@@ -158,7 +162,7 @@ export class AuthService {
 				},
 			},
 		);
-
+		console.log('Третий запрос');
 		const emails = emailResponse.data;
 
 		const primaryEmail = emails.find(
@@ -170,21 +174,126 @@ export class AuthService {
 			throw new Error('No primary verified email found for GitHub user');
 		}
 
+		console.log('Добавление');
 		let user = await this.userService.getByEmail(primaryEmail);
 		if (!user) {
 			user = await this.userService.createFromService({
 				email: primaryEmail,
 				name: userData.name,
+				image: userData.avatar_url,
 			});
+
+			const accountDto = {
+				provider: Provider.Github,
+				providerAccountId: userData.id.toString(),
+				userId: user.id,
+				accessToken: await hash(accessToken),
+			};
+
+			await this.accountService.create(accountDto);
 		}
 
-		const accountDto = {
-			provider: Provider.Github,
-			providerAccountId: userData.id.toString(),
-			userId: user.id,
-		};
+		const account = await this.accountService.find(user.id, Provider.Github);
+		if (!account) {
+			const accountDto = {
+				provider: Provider.Github,
+				providerAccountId: userData.id.toString(),
+				userId: user.id,
+				accessToken: await hash(accessToken),
+			};
+			await this.accountService.create(accountDto);
+		} else {
+			await this.accountService.update(account.id, await hash(accessToken));
+		}
 
-		await this.accountService.createOrUpdateAccount(accountDto);
+		const tokens = this.issueTokens(user);
+
+		return {
+			user,
+			...tokens,
+		};
+	}
+
+	async handleYandexLogin(code: string) {
+		console.log(code);
+		const authHeader = Buffer.from(
+			`${process.env.YANDEX_CLIENT_ID}:${process.env.YANDEX_CLIENT_SECRET}`,
+		).toString('base64');
+
+		const tokenResponse = await axios.post(
+			'https://oauth.yandex.ru/token',
+			`grant_type=authorization_code&code=${code}`,
+			{
+				headers: {
+					'Content-Type': 'application/x-www-form-urlencoded',
+					Authorization: `Basic ${authHeader}`,
+				},
+			},
+		);
+
+		console.log('Первый запрос');
+		console.log(tokenResponse.data);
+		if (!tokenResponse.data) {
+			throw new BadRequestException(
+				'Failed to obtain access token from Yandex',
+			);
+		}
+		const accessToken = tokenResponse.data.access_token;
+
+		const userResponse = await axios.get(
+			'https://login.yandex.ru/info?format=json',
+			{
+				headers: {
+					Authorization: `Bearer ${accessToken}`,
+				},
+			},
+		);
+		console.log('Второй запрос');
+		console.log(userResponse.data);
+		if (!userResponse.data) {
+			throw new BadRequestException('Failed to get user data from Yandex');
+		}
+
+		const userData = userResponse.data;
+		const primaryEmail = userData.default_email;
+
+		if (!primaryEmail) {
+			throw new Error('No primary email found for Yandex user');
+		}
+
+		console.log('Добавление');
+		let user = await this.userService.getByEmail(primaryEmail);
+		if (!user) {
+			user = await this.userService.createFromService({
+				email: primaryEmail,
+				name: userData.real_name || userData.display_name,
+				image: userData.default_avatar_id
+					? `https://avatars.yandex.net/get-yapic/${userData.default_avatar_id}/islands-200`
+					: null,
+			});
+
+			const accountDto = {
+				provider: Provider.Yandex,
+				providerAccountId: userData.id.toString(),
+				userId: user.id,
+				accessToken: await hash(accessToken),
+			};
+
+			await this.accountService.create(accountDto);
+		}
+
+		const account = await this.accountService.find(user.id, Provider.Yandex);
+		if (!account) {
+			const accountDto = {
+				provider: Provider.Yandex,
+				providerAccountId: userData.id.toString(),
+				userId: user.id,
+				accessToken: await hash(accessToken),
+			};
+			await this.accountService.create(accountDto);
+		} else {
+			await this.accountService.update(account.id, await hash(accessToken));
+		}
 
 		const tokens = this.issueTokens(user);
 

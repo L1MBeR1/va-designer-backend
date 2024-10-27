@@ -58,6 +58,7 @@ export class UserService {
 			data: {
 				email: dto.email,
 				name: dto.name,
+				image: dto.image,
 			},
 		});
 	}

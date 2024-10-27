@@ -83,4 +83,18 @@ export class AuthController {
 		const redirectUrl = `${process.env.FRONT_URL}/login?auth=true`;
 		return res.redirect(redirectUrl);
 	}
+
+	@HttpCode(200)
+	@Get('callback/yandex')
+	async yandexOauth(
+		@Query() queryData: { code: string },
+		@Res({ passthrough: true }) res: Response,
+	) {
+		const { refreshToken } = await this.authService.handleYandexLogin(
+			queryData.code,
+		);
+		this.authService.addRefreshTokenToResponse(res, refreshToken);
+		const redirectUrl = `${process.env.FRONT_URL}/login?auth=true`;
+		return res.redirect(redirectUrl);
+	}
 }

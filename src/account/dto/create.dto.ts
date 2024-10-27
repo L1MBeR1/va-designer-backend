@@ -10,4 +10,7 @@ export class CreateAccountDto {
 
 	@IsString()
 	providerAccountId: string;
+
+	@IsString()
+	accessToken: string;
 }

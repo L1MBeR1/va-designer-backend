@@ -12,6 +12,10 @@ model Account {
   userId            Int      @map("user_id")
   provider          Provider
   providerAccountId String   @map("provider_account_id")
+  accessToken       String?  @map("access_token")
+  refreshToken      String?  @map("refresh_token")
+  createdAt         DateTime @default(now()) @map("created_at")
+  updatedAt         DateTime @updatedAt @map("updated_at")
 
   user User @relation(fields: [userId], references: [id], onDelete: Cascade)
 

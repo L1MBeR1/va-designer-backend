@@ -6,6 +6,7 @@ import { AppModule } from './app.module';
 dotenv.config();
 console.log('Front URL:', process.env.FRONT_URL);
 console.log('Front Port:', process.env.PORT);
+console.log('Front DOMAIN:', process.env.DOMAIN);
 
 async function bootstrap() {
 	const app = await NestFactory.create(AppModule);
