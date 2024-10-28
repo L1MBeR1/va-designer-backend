@@ -73,7 +73,7 @@ export class AuthController {
 	@HttpCode(200)
 	@Get('oauth/github')
 	async githubOAuth(
-		@Query() queryData: { code: string; provider: string },
+		@Query() queryData: { code: string },
 		@Res({ passthrough: true }) res: Response,
 	) {
 		console.log(queryData);
@@ -86,12 +86,33 @@ export class AuthController {
 	@HttpCode(200)
 	@Get('oauth/yandex')
 	async yandexOAuth(
-		@Query() queryData: { code: string; provider: string },
+		@Query() queryData: { code: string },
 		@Res({ passthrough: true }) res: Response,
 	) {
 		console.log(queryData);
 		const { refreshToken, ...response } =
 			await this.authService.handleYandexLogin(queryData.code);
+		this.authService.addRefreshTokenToResponse(res, refreshToken);
+		return response;
+	}
+
+	@HttpCode(200)
+	@Get('oauth/vk') //TODO: добавить dto
+	async vkOAuth(
+		@Query()
+		queryData: {
+			code: string;
+			codeVerifier: string;
+			deviceId: string;
+		},
+		@Res({ passthrough: true }) res: Response,
+	) {
+		console.log(queryData);
+		const { refreshToken, ...response } = await this.authService.handleVkLogin(
+			queryData.code,
+			queryData.codeVerifier,
+			queryData.deviceId,
+		);
 		this.authService.addRefreshTokenToResponse(res, refreshToken);
 		return response;
 	}

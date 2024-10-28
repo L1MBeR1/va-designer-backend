@@ -302,4 +302,90 @@ export class AuthService {
 			...tokens,
 		};
 	}
+	async handleVkLogin(code: string, codeVerifier: string, deviceId: string) {
+		console.log(code, codeVerifier, deviceId);
+
+		const tokenResponse = await axios.post(
+			'https://id.vk.com/oauth2/auth',
+			`grant_type=authorization_code&code_verifier=${codeVerifier}&redirect_uri=${process.env.VK_REDIRECT_URI}&code=${code}&client_id=${process.env.VK_CLIENT_ID}&device_id=${deviceId}&state=gfdgdfgdg`, //TODO:Добавить проверку state
+			{
+				headers: {
+					'Content-Type': 'application/x-www-form-urlencoded',
+				},
+			},
+		);
+
+		console.log('Ответ на получение токена VK');
+		console.log(tokenResponse.data);
+
+		if (!tokenResponse.data) {
+			throw new BadRequestException('Failed to obtain access token from VK');
+		}
+
+		const accessToken = tokenResponse.data.access_token;
+
+		const userInfoResponse = await axios.post(
+			'https://id.vk.com/oauth2/user_info',
+			`client_id=${process.env.VK_CLIENT_ID}&access_token=${accessToken}`,
+			{
+				headers: {
+					'Content-Type': 'application/x-www-form-urlencoded',
+				},
+			},
+		);
+
+		console.log('Ответ на получение немаскированных данных пользователя VK');
+		console.log(userInfoResponse.data);
+
+		if (!userInfoResponse.data || !userInfoResponse.data.user.email) {
+			throw new BadRequestException('Failed to get user data from VK');
+		}
+
+		const userData = userInfoResponse.data.user;
+
+		const primaryEmail = userData.email;
+
+		if (!primaryEmail) {
+			throw new Error('No primary email found for VK user');
+		}
+
+		console.log('Добавление пользователя в базу данных');
+		let user = await this.userService.getByEmail(primaryEmail);
+		if (!user) {
+			user = await this.userService.createFromService({
+				email: primaryEmail,
+				name: `${userData.first_name} `,
+				image: null,
+			});
+
+			const accountDto = {
+				provider: Provider.Vk,
+				providerAccountId: userData.user_id.toString(),
+				userId: user.id,
+				accessToken: await hash(accessToken),
+			};
+
+			await this.accountService.create(accountDto);
+		}
+
+		const account = await this.accountService.find(user.id, Provider.Vk);
+		if (!account) {
+			const accountDto = {
+				provider: Provider.Vk,
+				providerAccountId: userData.user_id.toString(),
+				userId: user.id,
+				accessToken: await hash(accessToken),
+			};
+			await this.accountService.create(accountDto);
+		} else {
+			await this.accountService.update(account.id, await hash(accessToken));
+		}
+
+		const tokens = this.issueTokens(user);
+
+		return {
+			user,
+			...tokens,
+		};
+	}
 }
