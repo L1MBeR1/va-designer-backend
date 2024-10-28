@@ -6,55 +6,32 @@ import { CreateAccountDto } from './dto/create.dto';
 @Injectable()
 export class AccountService {
 	constructor(private readonly prisma: PrismaService) {}
+
+	async find(userId: number, provider: Provider) {
+		return this.prisma.account.findFirst({
+			where: {
+				userId,
+				provider,
+			},
+		});
+	}
 	async create(accountDto: CreateAccountDto) {
 		return this.prisma.account.create({
 			data: {
 				userId: accountDto.userId,
 				provider: accountDto.provider,
 				providerAccountId: accountDto.providerAccountId,
+				accessToken: accountDto.accessToken,
 			},
 		});
 	}
 
-	async getAccountsByUserId(userId: number) {
-		return this.prisma.account.findMany({
-			where: { userId },
-		});
-	}
-
-	async linkAccountToUser(
-		userId: number,
-		provider: Provider,
-		providerAccountId: string,
-	) {
+	async update(accountId: number, accessToken: string) {
 		return this.prisma.account.update({
 			where: {
-				provider_providerAccountId: {
-					provider: provider,
-					providerAccountId: providerAccountId,
-				},
+				id: accountId,
 			},
-			data: { userId },
+			data: { accessToken },
 		});
-	}
-	async createOrUpdateAccount(dto: CreateAccountDto) {
-		const existingAccount = await this.prisma.account.findUnique({
-			where: {
-				provider_providerAccountId: {
-					providerAccountId: dto.providerAccountId,
-					provider: dto.provider,
-				},
-			},
-		});
-
-		if (existingAccount) {
-			return this.linkAccountToUser(
-				dto.userId,
-				dto.provider,
-				dto.providerAccountId,
-			);
-		} else {
-			return this.create(dto);
-		}
 	}
 }
