@@ -71,30 +71,28 @@ export class AuthController {
 	}
 
 	@HttpCode(200)
-	@Get('callback/github')
-	async githubOauth(
-		@Query() queryData: { code: string },
+	@Get('oauth/github')
+	async githubOAuth(
+		@Query() queryData: { code: string; provider: string },
 		@Res({ passthrough: true }) res: Response,
 	) {
-		const { refreshToken } = await this.authService.handleGitHubLogin(
-			queryData.code,
-		);
+		console.log(queryData);
+		const { refreshToken, ...response } =
+			await this.authService.handleGitHubLogin(queryData.code);
 		this.authService.addRefreshTokenToResponse(res, refreshToken);
-		const redirectUrl = `${process.env.FRONT_URL}/login?auth=true`;
-		return res.redirect(redirectUrl);
+		return response;
 	}
 
 	@HttpCode(200)
-	@Get('callback/yandex')
-	async yandexOauth(
-		@Query() queryData: { code: string },
+	@Get('oauth/yandex')
+	async yandexOAuth(
+		@Query() queryData: { code: string; provider: string },
 		@Res({ passthrough: true }) res: Response,
 	) {
-		const { refreshToken } = await this.authService.handleYandexLogin(
-			queryData.code,
-		);
+		console.log(queryData);
+		const { refreshToken, ...response } =
+			await this.authService.handleYandexLogin(queryData.code);
 		this.authService.addRefreshTokenToResponse(res, refreshToken);
-		const redirectUrl = `${process.env.FRONT_URL}/login?auth=true`;
-		return res.redirect(redirectUrl);
+		return response;
 	}
 }
