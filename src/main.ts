@@ -14,7 +14,7 @@ async function bootstrap() {
 	app.use(cookieParser());
 
 	app.enableCors({
-		origin: [process.env.FRONT_URL],
+		origin: [process.env.FRONT_URL, 'https://12d3-5-167-4-41.ngrok-free.app'],
 		credentials: true,
 		exposedHeaders: 'set-cookie',
 		methods: ['GET', 'POST', 'PUT', 'DELETE', 'OPTIONS'],

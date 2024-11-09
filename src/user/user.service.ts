@@ -1,6 +1,6 @@
 import { BadRequestException, Injectable } from '@nestjs/common';
 import { hash } from 'argon2';
-import { AuthDto } from '../auth/dto/auth.dto';
+import { AuthDto } from 'src/auth/dto/auth.dto';
 import { PrismaService } from '../prisma.service';
 import { CreateFromServiceDto } from './dto/createFromService.dto';
 
@@ -46,6 +46,7 @@ export class UserService {
 
 	async create(dto: AuthDto) {
 		const user = {
+			// name: dto.nickname,
 			email: dto.email,
 			password: await hash(dto.password),
 		};

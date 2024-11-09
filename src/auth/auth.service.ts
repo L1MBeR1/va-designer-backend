@@ -10,6 +10,7 @@ import { hash, verify } from 'argon2';
 import axios from 'axios';
 import { Response } from 'express';
 import { AccountService } from 'src/account/account.service';
+import { MailService } from 'src/mail.service';
 import { UserService } from '../user/user.service';
 import { AuthDto } from './dto/auth.dto';
 
@@ -22,6 +23,7 @@ export class AuthService {
 		private jwt: JwtService,
 		private userService: UserService,
 		private accountService: AccountService,
+		private readonly mailService: MailService,
 	) {}
 
 	async login(dto: AuthDto) {
@@ -45,11 +47,20 @@ export class AuthService {
 		const { password, ...user } = await this.userService.create(dto);
 		const tokens = this.issueTokens(user);
 
+		//TODO: Изменить на
+		await this.mailService.sendMail(
+			user.email,
+			'Добро пожаловать на нашу платформу!',
+			'Спасибо за регистрацию на нашей платформе.',
+			`<h1>Добро пожаловать, ${user.email}!</h1><p>Благодарим за то, что присоединились к нам. Мы рады видеть вас среди наших пользователей!</p>`,
+		);
+
 		return {
 			user,
 			...tokens,
 		};
 	}
+
 	async getNewTokens(refreshToken: string) {
 		const result = await this.jwt.verifyAsync(refreshToken);
 
@@ -116,6 +127,63 @@ export class AuthService {
 			secure: false,
 			sameSite: 'lax',
 		});
+	}
+
+	async generateHashedNickname(id: number): Promise<string> {
+		const salt = process.env.GENERATE_NICKNAME_SALT;
+
+		const encoder = new TextEncoder();
+		const data = encoder.encode(id + salt);
+
+		const hashBuffer = await crypto.subtle.digest('SHA-256', data);
+
+		const hashArray = Array.from(new Uint8Array(hashBuffer));
+
+		const hashHex = hashArray
+			.map(byte => byte.toString(16).padStart(2, '0'))
+			.join('');
+
+		return `user${hashHex.slice(0, 13)}`;
+	}
+
+	async generateState(stateLength: number): Promise<string> {
+		const characters =
+			'ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789';
+		let state = '';
+
+		for (let i = 0; i < stateLength; i++) {
+			state += characters.charAt(Math.floor(Math.random() * characters.length));
+		}
+
+		return state;
+	}
+
+	async generatePKCEData(): Promise<{
+		codeVerifier: string;
+		codeChallenge: string;
+		state: string;
+	}> {
+		const codeVerifier = Array.from(crypto.getRandomValues(new Uint8Array(32)))
+			.map(v => v.toString(16).padStart(2, '0'))
+			.join('');
+
+		const encoder = new TextEncoder();
+		const data = encoder.encode(codeVerifier);
+		const digest = await crypto.subtle.digest('SHA-256', data);
+		const codeChallenge = btoa(
+			String.fromCharCode(...Array.from(new Uint8Array(digest))),
+		)
+			.replace(/\+/g, '-')
+			.replace(/\//g, '_')
+			.replace(/=+$/, '');
+
+		const state = await this.generateState(32);
+
+		return {
+			codeVerifier,
+			codeChallenge,
+			state,
+		};
 	}
 
 	async handleGitHubLogin(code: string) {
@@ -214,15 +282,19 @@ export class AuthService {
 		};
 	}
 
-	async handleYandexLogin(code: string) {
-		console.log(code);
+	async handleYandexLogin(
+		code: string,
+		codeVerifier: string,
+		// deviceId: string,
+	) {
+		console.log(code, codeVerifier);
 		const authHeader = Buffer.from(
 			`${process.env.YANDEX_CLIENT_ID}:${process.env.YANDEX_CLIENT_SECRET}`,
 		).toString('base64');
 
 		const tokenResponse = await axios.post(
 			'https://oauth.yandex.ru/token',
-			`grant_type=authorization_code&code=${code}`,
+			`grant_type=authorization_code&code=${code}&code_verifier=${codeVerifier}`,
 			{
 				headers: {
 					'Content-Type': 'application/x-www-form-urlencoded',
@@ -305,9 +377,11 @@ export class AuthService {
 	async handleVkLogin(code: string, codeVerifier: string, deviceId: string) {
 		console.log(code, codeVerifier, deviceId);
 
+		let state = await this.generateState(32);
+
 		const tokenResponse = await axios.post(
 			'https://id.vk.com/oauth2/auth',
-			`grant_type=authorization_code&code_verifier=${codeVerifier}&redirect_uri=${process.env.VK_REDIRECT_URI}&code=${code}&client_id=${process.env.VK_CLIENT_ID}&device_id=${deviceId}&state=gfdgdfgdg`, //TODO:Добавить проверку state
+			`grant_type=authorization_code&code_verifier=${codeVerifier}&redirect_uri=${process.env.VK_REDIRECT_URI}&code=${code}&client_id=${process.env.VK_CLIENT_ID}&device_id=${deviceId}&state=${state}`,
 			{
 				headers: {
 					'Content-Type': 'application/x-www-form-urlencoded',
@@ -321,12 +395,17 @@ export class AuthService {
 		if (!tokenResponse.data) {
 			throw new BadRequestException('Failed to obtain access token from VK');
 		}
+		if (tokenResponse.data.state !== state) {
+			throw new BadRequestException('Failed to match states');
+		}
 
 		const accessToken = tokenResponse.data.access_token;
 
+		state = await this.generateState(32);
+
 		const userInfoResponse = await axios.post(
 			'https://id.vk.com/oauth2/user_info',
-			`client_id=${process.env.VK_CLIENT_ID}&access_token=${accessToken}`,
+			`client_id=${process.env.VK_CLIENT_ID}&access_token=${accessToken}&state=${state}`,
 			{
 				headers: {
 					'Content-Type': 'application/x-www-form-urlencoded',

@@ -71,6 +71,13 @@ export class AuthController {
 	}
 
 	@HttpCode(200)
+	@Post('pkce')
+	async getPKCETokens() {
+		const response = await this.authService.generatePKCEData();
+		return response;
+	}
+
+	@HttpCode(200)
 	@Get('oauth/github')
 	async githubOAuth(
 		@Query() queryData: { code: string },
@@ -86,12 +93,17 @@ export class AuthController {
 	@HttpCode(200)
 	@Get('oauth/yandex')
 	async yandexOAuth(
-		@Query() queryData: { code: string },
+		@Query()
+		queryData: { code: string; codeVerifier: string; deviceId: string },
 		@Res({ passthrough: true }) res: Response,
 	) {
 		console.log(queryData);
 		const { refreshToken, ...response } =
-			await this.authService.handleYandexLogin(queryData.code);
+			await this.authService.handleYandexLogin(
+				queryData.code,
+				queryData.codeVerifier,
+				// queryData.deviceId,
+			);
 		this.authService.addRefreshTokenToResponse(res, refreshToken);
 		return response;
 	}
