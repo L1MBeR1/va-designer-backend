@@ -45,24 +45,29 @@ export class UserService {
 	}
 
 	async create(dto: AuthDto) {
-		const user = {
-			// name: dto.nickname,
-			email: dto.email,
-			password: await hash(dto.password),
-		};
-		return this.prisma.user.create({
-			data: user,
+		const { ...user } = await this.prisma.user.create({
+			data: { email: dto.email, password: await hash(dto.password) },
 		});
+		const result = await this.prisma.user.update({
+			where: { id: user.id },
+			data: { name: await this.generateHashedNickname(user.id) },
+		});
+
+		return result;
 	}
 	async createFromService(dto: CreateFromServiceDto) {
-		return this.prisma.user.create({
+		const { ...user } = await this.prisma.user.create({
 			data: {
 				email: dto.email,
-				name: dto.name,
 				image: dto.image,
 				emailVerified: true,
 			},
 		});
+		const result = await this.prisma.user.update({
+			where: { id: user.id },
+			data: { name: await this.generateHashedNickname(user.id) },
+		});
+		return result;
 	}
 	async generateHashedNickname(id: number) {
 		const salt = process.env.GENERATE_NICKNAME_SALT;
@@ -78,7 +83,7 @@ export class UserService {
 			.map(byte => byte.toString(16).padStart(2, '0'))
 			.join('');
 
-		return `user${hashHex.slice(0, 13)}`;
+		return `user_${hashHex.slice(0, 12)}`;
 	}
 
 	async verifyEmail(id: number) {

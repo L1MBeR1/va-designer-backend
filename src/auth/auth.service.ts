@@ -5,13 +5,12 @@ import {
 	UnauthorizedException,
 } from '@nestjs/common';
 import { JwtService } from '@nestjs/jwt';
-import { Provider, TokenPurpose } from '@prisma/client';
+import { Provider } from '@prisma/client';
 import { hash, verify } from 'argon2';
 import axios from 'axios';
 import { Response } from 'express';
 import { AccountService } from 'src/account/account.service';
-import { MailService } from 'src/mail.service';
-import { TokenService } from 'src/token/token.service';
+import { MailService } from 'src/mail/mail.service';
 import { UserService } from '../user/user.service';
 import { AuthDto } from './dto/auth.dto';
 
@@ -24,7 +23,6 @@ export class AuthService {
 		private jwt: JwtService,
 		private userService: UserService,
 		private accountService: AccountService,
-		private tokenService: TokenService,
 		private readonly mailService: MailService,
 	) {}
 
@@ -49,21 +47,7 @@ export class AuthService {
 		const { password, ...user } = await this.userService.create(dto);
 		const tokens = this.issueTokens(user);
 
-		const token = await this.tokenService.generateToken(
-			user.id,
-			TokenPurpose.EMAIL_VERIFICATION,
-		);
-
-		const verificationLink = `${process.env.FRONT_URL}/auth/actions/verify-email?token=${token}`;
-
-		await this.mailService.sendMail(
-			user.email,
-			'Подтверждение регистрации',
-			'Пожалуйста, подтвердите вашу почту',
-			`<h1>Добро пожаловать, ${user.email}!</h1>
-			 <p>Спасибо за регистрацию. Для подтверждения вашего email перейдите по следующей ссылке:</p>
-			 <a href="${verificationLink}">Подтвердить email</a>`,
-		);
+		await this.mailService.sendWelcomeMail(user.email);
 		return {
 			user,
 			...tokens,

@@ -2,8 +2,6 @@ import {
 	BadRequestException,
 	ForbiddenException,
 	Injectable,
-	NotFoundException,
-	UnauthorizedException,
 } from '@nestjs/common';
 import { JwtService } from '@nestjs/jwt';
 import { TokenPurpose } from '@prisma/client';
@@ -14,7 +12,7 @@ import { VerifyDto } from './dto/verify.dto';
 
 @Injectable()
 export class TokenService {
-	EXPIRE_TOKEN = 1;
+	EXPIRE_TOKEN = 15;
 
 	constructor(
 		private jwt: JwtService,
@@ -66,7 +64,7 @@ export class TokenService {
 			throw new BadRequestException('Invalid token format');
 		}
 
-		if (!result) throw new UnauthorizedException('Invalid token');
+		if (!result) throw new BadRequestException('Invalid token');
 
 		if (result.purpose !== dto.purpose) {
 			throw new BadRequestException('Token purpose mismatch');
@@ -80,9 +78,7 @@ export class TokenService {
 			},
 		});
 
-		if (!tokenRecord) throw new NotFoundException('Token not found');
-
-		if (tokenRecord.expires <= new Date()) {
+		if (!tokenRecord || tokenRecord.expires <= new Date()) {
 			throw new ForbiddenException('Token has expired');
 		}
 		return result;
