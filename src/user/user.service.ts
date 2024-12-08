@@ -60,7 +60,37 @@ export class UserService {
 				email: dto.email,
 				name: dto.name,
 				image: dto.image,
+				emailVerified: true,
 			},
+		});
+	}
+	async generateHashedNickname(id: number) {
+		const salt = process.env.GENERATE_NICKNAME_SALT;
+
+		const encoder = new TextEncoder();
+		const data = encoder.encode(id + salt);
+
+		const hashBuffer = await crypto.subtle.digest('SHA-256', data);
+
+		const hashArray = Array.from(new Uint8Array(hashBuffer));
+
+		const hashHex = hashArray
+			.map(byte => byte.toString(16).padStart(2, '0'))
+			.join('');
+
+		return `user${hashHex.slice(0, 13)}`;
+	}
+
+	async verifyEmail(id: number) {
+		const user = await this.getById(id);
+
+		if (user.emailVerified) {
+			throw new BadRequestException('Email is already verified');
+		}
+
+		await this.prisma.user.update({
+			where: { id },
+			data: { emailVerified: true },
 		});
 	}
 }

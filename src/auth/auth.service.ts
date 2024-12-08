@@ -5,12 +5,13 @@ import {
 	UnauthorizedException,
 } from '@nestjs/common';
 import { JwtService } from '@nestjs/jwt';
-import { Provider } from '@prisma/client';
+import { Provider, TokenPurpose } from '@prisma/client';
 import { hash, verify } from 'argon2';
 import axios from 'axios';
 import { Response } from 'express';
 import { AccountService } from 'src/account/account.service';
 import { MailService } from 'src/mail.service';
+import { TokenService } from 'src/token/token.service';
 import { UserService } from '../user/user.service';
 import { AuthDto } from './dto/auth.dto';
 
@@ -23,6 +24,7 @@ export class AuthService {
 		private jwt: JwtService,
 		private userService: UserService,
 		private accountService: AccountService,
+		private tokenService: TokenService,
 		private readonly mailService: MailService,
 	) {}
 
@@ -47,14 +49,21 @@ export class AuthService {
 		const { password, ...user } = await this.userService.create(dto);
 		const tokens = this.issueTokens(user);
 
-		//TODO: Изменить на
-		await this.mailService.sendMail(
-			user.email,
-			'Добро пожаловать на нашу платформу!',
-			'Спасибо за регистрацию на нашей платформе.',
-			`<h1>Добро пожаловать, ${user.email}!</h1><p>Благодарим за то, что присоединились к нам. Мы рады видеть вас среди наших пользователей!</p>`,
+		const token = await this.tokenService.generateToken(
+			user.id,
+			TokenPurpose.EMAIL_VERIFICATION,
 		);
 
+		const verificationLink = `${process.env.FRONT_URL}/auth/actions/verify-email?token=${token}`;
+
+		await this.mailService.sendMail(
+			user.email,
+			'Подтверждение регистрации',
+			'Пожалуйста, подтвердите вашу почту',
+			`<h1>Добро пожаловать, ${user.email}!</h1>
+			 <p>Спасибо за регистрацию. Для подтверждения вашего email перейдите по следующей ссылке:</p>
+			 <a href="${verificationLink}">Подтвердить email</a>`,
+		);
 		return {
 			user,
 			...tokens,
@@ -100,9 +109,9 @@ export class AuthService {
 		const user = await this.userService.getByEmail(dto.email);
 
 		if (!user) throw new NotFoundException('User not found');
-
+		console.log(user);
 		const isValid = await verify(user.password, dto.password);
-
+		console.log(isValid);
 		if (!isValid) throw new UnauthorizedException('Invalid password');
 		return user;
 	}
@@ -127,23 +136,6 @@ export class AuthService {
 			secure: false,
 			sameSite: 'lax',
 		});
-	}
-
-	async generateHashedNickname(id: number): Promise<string> {
-		const salt = process.env.GENERATE_NICKNAME_SALT;
-
-		const encoder = new TextEncoder();
-		const data = encoder.encode(id + salt);
-
-		const hashBuffer = await crypto.subtle.digest('SHA-256', data);
-
-		const hashArray = Array.from(new Uint8Array(hashBuffer));
-
-		const hashHex = hashArray
-			.map(byte => byte.toString(16).padStart(2, '0'))
-			.join('');
-
-		return `user${hashHex.slice(0, 13)}`;
 	}
 
 	async generateState(stateLength: number): Promise<string> {
