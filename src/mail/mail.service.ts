@@ -7,6 +7,7 @@ import { join } from 'path';
 import { FrontPageConfig } from 'src/config/frontPage.config';
 import { TokenService } from 'src/token/token.service';
 import { UserService } from 'src/user/user.service';
+import { SendMailDto } from './dto/sendMail.dto';
 
 @Injectable()
 export class MailService {
@@ -77,5 +78,27 @@ export class MailService {
 		const context = { verificationLink };
 
 		return await this.sendMailWithTemplate(to, subject, template, context);
+	}
+
+	async sendPasswordResetMail(dto: SendMailDto) {
+		const template = 'passwordReset';
+		const subject = 'Восстановление пароля';
+		const user = await this.userService.getByEmail(dto.email);
+
+		const token = await this.tokenService.generateToken(
+			user.id,
+			TokenPurpose.PASSWORD_RESET,
+		);
+
+		const link = `${process.env.FRONT_URL}${FrontPageConfig.verificationPath}${FrontPageConfig.passwordResetPath}?token=${token}`;
+
+		const context = { link };
+
+		return await this.sendMailWithTemplate(
+			user.email,
+			subject,
+			template,
+			context,
+		);
 	}
 }

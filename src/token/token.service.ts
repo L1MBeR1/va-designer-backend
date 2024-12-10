@@ -7,7 +7,6 @@ import { JwtService } from '@nestjs/jwt';
 import { TokenPurpose } from '@prisma/client';
 import * as crypto from 'crypto';
 import { PrismaService } from 'src/prisma.service';
-import { UserService } from 'src/user/user.service';
 import { VerifyDto } from './dto/verify.dto';
 
 @Injectable()
@@ -16,7 +15,6 @@ export class TokenService {
 
 	constructor(
 		private jwt: JwtService,
-		private userService: UserService,
 		private prisma: PrismaService,
 	) {}
 
@@ -55,6 +53,7 @@ export class TokenService {
 	}
 
 	async validateToken(dto: VerifyDto) {
+		// console.log(dto);
 		let result: { purpose: TokenPurpose; userId: number };
 		try {
 			result = await this.jwt.verifyAsync(dto.token, {
@@ -82,17 +81,5 @@ export class TokenService {
 			throw new ForbiddenException('Token has expired');
 		}
 		return result;
-	}
-
-	async verifyEmail(token: string) {
-		const dto: VerifyDto = { token, purpose: TokenPurpose.EMAIL_VERIFICATION };
-
-		const result = await this.validateToken(dto);
-
-		await this.userService.verifyEmail(result.userId);
-
-		await this.deleteToken(result.userId, result.purpose);
-
-		return true;
 	}
 }

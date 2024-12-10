@@ -1,7 +1,6 @@
 import {
 	BadRequestException,
 	Injectable,
-	NotFoundException,
 	UnauthorizedException,
 } from '@nestjs/common';
 import { JwtService } from '@nestjs/jwt';
@@ -39,7 +38,7 @@ export class AuthService {
 	}
 
 	async register(dto: AuthDto) {
-		const oldUser = await this.userService.getByEmail(dto.email);
+		const oldUser = await this.userService.checkByEmail(dto.email);
 
 		if (oldUser) throw new BadRequestException('User already exists');
 
@@ -92,7 +91,6 @@ export class AuthService {
 	private async validateUser(dto: AuthDto) {
 		const user = await this.userService.getByEmail(dto.email);
 
-		if (!user) throw new NotFoundException('User not found');
 		console.log(user);
 		const isValid = await verify(user.password, dto.password);
 		console.log(isValid);
@@ -219,7 +217,7 @@ export class AuthService {
 		}
 
 		console.log('Добавление');
-		let user = await this.userService.getByEmail(primaryEmail);
+		let user = await this.userService.checkByEmail(primaryEmail);
 		if (!user) {
 			user = await this.userService.createFromService({
 				email: primaryEmail,
@@ -310,7 +308,7 @@ export class AuthService {
 		}
 
 		console.log('Добавление');
-		let user = await this.userService.getByEmail(primaryEmail);
+		let user = await this.userService.checkByEmail(primaryEmail);
 		if (!user) {
 			user = await this.userService.createFromService({
 				email: primaryEmail,
@@ -405,7 +403,7 @@ export class AuthService {
 		}
 
 		console.log('Добавление пользователя в базу данных');
-		let user = await this.userService.getByEmail(primaryEmail);
+		let user = await this.userService.checkByEmail(primaryEmail);
 		if (!user) {
 			user = await this.userService.createFromService({
 				email: primaryEmail,

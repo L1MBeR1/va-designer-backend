@@ -8,7 +8,7 @@ export class TokenCleanupService {
 
 	constructor(private readonly prisma: PrismaService) {}
 
-	@Cron(CronExpression.EVERY_1ST_DAY_OF_MONTH_AT_MIDNIGHT)
+	@Cron(CronExpression.EVERY_WEEK)
 	async deleteExpiredTokens() {
 		this.logger.log('Starting token cleanup process...');
 
