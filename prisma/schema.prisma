@@ -30,34 +30,20 @@ enum Provider {
 }
 
 model User {
-  id                    Int                    @id @default(autoincrement())
-  name                  String?
-  email                 String                 @unique @map("email")
-  emailVerified         DateTime?              @map("email_verified")
-  image                 String?                @map("image")
-  createdAt             DateTime               @default(now()) @map("created_at")
-  updatedAt             DateTime               @updatedAt @map("updated_at")
-  password              String?                @map("password")
-  isTwoFactorEnabled    Boolean                @default(false) @map("is_two_factor_enabled")
-  accounts              Account[]
-  twoFactorConfirmation TwoFactorConfirmation?
-  verificationTokens    VerificationToken[]
-  twoFactorTokens       TwoFactorToken[]
+  id                 Int                 @id @default(autoincrement())
+  name               String?
+  email              String              @unique @map("email")
+  emailVerified      Boolean             @default(false) @map("email_verified")
+  image              String?             @map("image")
+  createdAt          DateTime            @default(now()) @map("created_at")
+  updatedAt          DateTime            @updatedAt @map("updated_at")
+  password           String?             @map("password")
+  isTwoFactorEnabled Boolean             @default(false) @map("is_two_factor_enabled")
+  accounts           Account[]
+  twoFactorTokens    TwoFactorToken[]
+  verificationTokens VerificationToken[]
 
   @@map("users")
-}
-
-model VerificationToken {
-  id      Int      @id @default(autoincrement())
-  email   String   @map("email")
-  token   String   @unique @map("token")
-  expires DateTime @map("expires")
-
-  userId Int?  @map("user_id")
-  user   User? @relation(fields: [userId], references: [id], onDelete: Cascade)
-
-  @@unique([email, token])
-  @@map("verification_tokens")
 }
 
 model TwoFactorToken {
@@ -73,11 +59,22 @@ model TwoFactorToken {
   @@map("two_factor_tokens")
 }
 
-model TwoFactorConfirmation {
-  id     Int  @id @default(autoincrement())
+enum TokenPurpose {
+  EMAIL_VERIFICATION
+  PASSWORD_RESET
+  EMAIL_CHANGE
+  ACCOUNT_DELETION
+}
+
+model VerificationToken {
+  id        Int          @id @default(autoincrement())
+  token     String       @unique @map("token")
+  purpose   TokenPurpose @map("purpose")
+  expires   DateTime     @map("expires")
+  createdAt DateTime     @default(now()) @map("created_at")
+
   userId Int  @map("user_id")
   user   User @relation(fields: [userId], references: [id], onDelete: Cascade)
 
-  @@unique([userId])
-  @@map("two_factor_confirmations")
+  @@map("verification_tokens")
 }
